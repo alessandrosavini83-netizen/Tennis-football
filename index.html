@@ -499,6 +499,7 @@
         <div class="total-line" id="totalLine">Sessione · 20:00 rimanenti</div>
         <div class="controls">
           <button class="primary" id="startBtn">Inizia</button>
+          <button class="ghost" id="restartBtn">↺</button>
           <button class="ghost" id="skipBtn">Salta ▸</button>
         </div>
       </div>
@@ -783,7 +784,7 @@ function nextBlock(){
 }
 // salva lo stato del timer così sopravvive a blocco schermo / chiusura
 function saveTimer(){
-  try{ localStorage.setItem('tocco_timer', JSON.stringify({idx,endAt,running})); }catch(e){}
+  try{ localStorage.setItem('tocco_timer', JSON.stringify({idx,endAt,running,remain})); }catch(e){}
 }
 function clearTimer(){ try{ localStorage.removeItem('tocco_timer'); }catch(e){} }
 
@@ -801,6 +802,8 @@ $('#startBtn').onclick=()=>{
     saveTimer();
     clearInterval(tick); tick=setInterval(loop,500);
   } else {
+    // PAUSA: congela i secondi rimasti all'istante esatto
+    if(endAt!==null) remain=Math.max(0,Math.round((endAt-Date.now())/1000));
     clearInterval(tick);
     saveTimer();
   }
@@ -812,6 +815,16 @@ $('#skipBtn').onclick=()=>{
   if(idx<BLOCKS.length-1){
     idx++; remain=BLOCKS[idx].s; endAt=null; saveTimer(); paintBlock();
   } else { clearTimer(); finishSession(); }
+};
+// ricomincia il blocco corrente da capo (timer al tempo pieno, in pausa)
+$('#restartBtn').onclick=()=>{
+  clearInterval(tick);
+  running=false;
+  remain=BLOCKS[idx].s;
+  endAt=null;
+  $('#startBtn').textContent='Inizia';
+  saveTimer();
+  paintBlock();
 };
 
 // ripristina il timer al riapri / sblocco schermo
@@ -832,8 +845,8 @@ function restoreTimer(){
     $('#startBtn').textContent='Pausa';
     clearInterval(tick); tick=setInterval(loop,500);
   } else {
-    remain=(t.endAt? Math.max(0,Math.round((t.endAt-Date.now())/1000)) : BLOCKS[idx].s);
-    if(!t.endAt) remain=BLOCKS[idx].s;
+    // era in PAUSA: riprendi esattamente dai secondi rimasti, fermi
+    remain = (typeof t.remain==='number') ? t.remain : BLOCKS[idx].s;
     running=false; $('#startBtn').textContent='Riprendi';
   }
   paintBlock();
