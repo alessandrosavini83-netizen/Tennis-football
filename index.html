@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tocco — Allenatore palleggio</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --court: #c8e85f;        /* giallo-verde pallina da tennis */
+    --court-deep: #a7c93e;
+    --line: #f4f6ef;         /* bianco campo */
+    --clay: #d56a3f;         /* terra rossa accento */
+    --ink: #16201a;          /* verde notte testo */
+    --ink-soft: #5b6b5e;
+    --panel: #fbfdf6;
+    --shadow: rgba(22,32,26,.14);
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+
+  body{
+    font-family:'Bricolage Grotesque',system-ui,sans-serif;
+    background:var(--ink);
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    overflow-x:hidden;
+  }
+
+  .app{
+    width:100%;
+    max-width:480px;
+    background:
+      radial-gradient(120% 60% at 50% -10%, var(--court-deep), transparent 60%),
+      var(--court);
+    min-height:100vh;
+    position:relative;
+    overflow:hidden;
+  }
+
+  /* curva linea da campo come firma — resta dietro, solo zona alta */
+  .seam{
+    position:absolute;
+    top:-120px;left:-40px;right:-40px;height:230px;
+    border-bottom:3px solid var(--line);
+    border-radius:0 0 60% 60%/0 0 100% 100%;
+    opacity:.4;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  header{
+    position:relative;
+    z-index:2;
+    padding:26px 24px 14px;
+  }
+  .kicker{
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    letter-spacing:.28em;
+    text-transform:uppercase;
+    color:var(--ink);
+    opacity:.7;
+  }
+  h1{
+    font-size:46px;
+    font-weight:800;
+    line-height:.9;
+    letter-spacing:-.03em;
+    margin-top:4px;
+  }
+  h1 .ball{
+    display:inline-block;
+    width:34px;height:34px;
+    background:var(--line);
+    border-radius:50%;
+    position:relative;
+    vertical-align:-2px;
+    margin-left:4px;
+    box-shadow:inset -4px -4px 0 rgba(0,0,0,.05);
+  }
+  h1 .ball::before,h1 .ball::after{
+    content:"";position:absolute;inset:0;
+    border:2.5px solid var(--clay);
+    border-radius:50%;
+    clip-path:inset(0 50% 0 0);
+    transform:rotate(28deg) scaleX(.62);
+  }
+  h1 .ball::after{transform:rotate(28deg) scaleX(.62) scaleX(-1);clip-path:inset(0 0 0 50%);}
+
+  /* streak banner */
+  .streak{
+    display:flex;align-items:center;gap:10px;
+    margin:14px 24px 0;
+    position:relative;
+    z-index:2;
+    background:var(--ink);
+    color:var(--line);
+    border-radius:16px;
+    padding:14px 18px;
+  }
+  .streak .big{
+    font-family:'Space Mono',monospace;
+    font-size:30px;font-weight:700;
+    color:var(--court);
+    line-height:1;
+  }
+  .streak .lbl{font-size:13px;line-height:1.2;opacity:.85;}
+  .streak .cheer{margin-left:auto;display:flex;align-items:center;gap:8px;max-width:52%;justify-content:flex-end;}
+  .streak .fire{font-size:26px;flex:0 0 auto;}
+  .streak #cheerTxt{font-size:12px;line-height:1.25;color:var(--court);text-align:right;}
+
+  .tabs{
+    display:flex;gap:5px;
+    margin:18px 0 0;
+    padding:0 18px 4px;
+    position:relative;
+    z-index:2;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{
+    flex:0 0 auto;
+    font-family:'Space Mono',monospace;
+    font-size:11px;letter-spacing:.02em;text-transform:uppercase;
+    padding:11px 14px;
+    background:transparent;
+    border:2px solid var(--ink);
+    border-radius:11px;
+    color:var(--ink);
+    font-weight:700;
+    cursor:pointer;
+    transition:.15s;
+    white-space:nowrap;
+  }
+  .tab.active{background:var(--ink);color:var(--court);}
+
+  main{padding:18px 24px 120px;position:relative;z-index:2;}
+  .view{display:none;animation:fade .35s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  .card{
+    background:var(--panel);
+    border-radius:22px;
+    padding:22px;
+    box-shadow:0 8px 24px var(--shadow);
+    margin-bottom:16px;
+  }
+
+  /* ---- ALLENA: timer ---- */
+  .phase-pill{
+    display:inline-block;
+    font-family:'Space Mono',monospace;
+    font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    background:var(--clay);color:#fff;
+    padding:5px 12px;border-radius:999px;
+    margin-bottom:14px;
+  }
+  .timer-num{
+    font-family:'Space Mono',monospace;
+    font-size:78px;font-weight:700;
+    text-align:center;
+    line-height:1;
+    letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;
+  }
+  .block-name{
+    text-align:center;
+    font-size:20px;font-weight:600;
+    margin-top:4px;
+  }
+  .block-desc{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:14px;
+    margin-top:6px;
+    min-height:40px;
+  }
+  .progress{
+    height:8px;background:#e6ecdb;border-radius:999px;
+    margin:18px 0 4px;overflow:hidden;
+  }
+  .progress > i{
+    display:block;height:100%;background:var(--court-deep);
+    width:0;transition:width .3s linear;
+  }
+  .seg-row{display:flex;gap:4px;margin-top:10px;}
+  .seg{flex:1;height:5px;border-radius:999px;background:#e6ecdb;}
+  .seg.done{background:var(--clay);}
+  .seg.now{background:var(--ink);}
+
+  .controls{display:flex;gap:10px;margin-top:20px;}
+  button.primary{
+    flex:1;
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-size:17px;font-weight:700;
+    padding:16px;border:none;border-radius:16px;
+    background:var(--ink);color:var(--court);
+    cursor:pointer;transition:.15s;
+  }
+  button.primary:active{transform:scale(.97);}
+  button.ghost{
+    font-family:'Space Mono',monospace;
+    font-size:13px;font-weight:700;
+    padding:16px 18px;border:2px solid var(--ink);border-radius:16px;
+    background:transparent;color:var(--ink);cursor:pointer;
+  }
+
+  /* ---- conta tocchi ---- */
+  .counter-wrap{text-align:center;}
+  .tap-zone{
+    margin:8px 0 0;
+    background:var(--court);
+    border:3px solid var(--ink);
+    border-radius:24px;
+    padding:34px 16px;
+    cursor:pointer;
+    user-select:none;
+    transition:.08s;
+  }
+  .tap-zone:active{transform:scale(.98);background:var(--court-deep);}
+  .tap-count{font-family:'Space Mono',monospace;font-size:84px;font-weight:700;line-height:1;}
+  .tap-hint{font-size:14px;color:var(--ink-soft);margin-top:6px;font-weight:600;}
+  .pb-line{
+    font-family:'Space Mono',monospace;font-size:13px;
+    margin-top:14px;color:var(--ink-soft);
+  }
+  .pb-line b{color:var(--clay);}
+
+  /* ---- PIANO ---- */
+  .phase-card{position:relative;overflow:hidden;transition:opacity .3s;}
+  .phase-card.phase-off{opacity:.5;}
+  .phase-card.phase-on{box-shadow:0 8px 24px var(--shadow),0 0 0 3px var(--clay);}
+  .phase-flag{
+    position:absolute;top:16px;right:16px;
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;
+    padding:4px 10px;border-radius:999px;display:none;
+  }
+  .phase-on .phase-flag{background:var(--clay);color:#fff;}
+  .phase-done .phase-flag{background:var(--court-deep);color:var(--ink);}
+  .phase-card h3{font-size:20px;font-weight:800;letter-spacing:-.01em;}
+  .phase-card .days{
+    font-family:'Space Mono',monospace;font-size:12px;
+    color:var(--clay);font-weight:700;margin-top:2px;
+  }
+  .phase-card ul{list-style:none;margin-top:12px;}
+  .phase-card li{
+    font-size:14px;padding:10px 0 10px 22px;position:relative;
+    border-top:1px solid #eef2e6;color:var(--ink);
+  }
+  .phase-card .ex-name{display:block;font-weight:700;font-size:15px;margin-bottom:3px;}
+  .phase-card .ex-desc{display:block;color:var(--ink-soft);font-size:13px;line-height:1.5;}
+  .phase-card li:first-child{border-top:none;}
+  .phase-card li::before{
+    content:"";position:absolute;left:2px;top:16px;
+    width:8px;height:8px;border-radius:50%;background:var(--court-deep);
+  }
+  .goal{
+    margin-top:12px;font-size:13px;font-weight:600;
+    background:#f0f5e4;border-radius:12px;padding:10px 12px;
+    color:var(--ink);
+  }
+  .goal b{color:var(--clay);}
+
+  /* ---- record list ---- */
+  .rec{
+    display:flex;align-items:center;gap:14px;
+    padding:13px 0;border-top:1px solid #eef2e6;
+  }
+  .rec:first-child{border-top:none;}
+  .rec .d{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink-soft);width:78px;}
+  .rec .bar{flex:1;height:10px;background:#eef2e6;border-radius:999px;overflow:hidden;}
+  .rec .bar > i{display:block;height:100%;background:var(--court-deep);}
+  .rec .v{font-family:'Space Mono',monospace;font-weight:700;width:34px;text-align:right;}
+  .empty{text-align:center;color:var(--ink-soft);font-size:14px;padding:20px 0;}
+
+  .tip{
+    font-size:13px;color:var(--ink-soft);
+    line-height:1.5;margin-top:2px;
+  }
+  .section-label{
+    font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ink-soft);margin:4px 0 12px;
+  }
+  .reset{
+    display:block;margin:8px auto 0;background:none;border:none;
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--ink-soft);
+    text-decoration:underline;cursor:pointer;letter-spacing:.05em;
+  }
+
+  /* ---- animazione tocco-rimbalzo ---- */
+  .rhythm-stage{
+    position:relative;
+    height:170px;
+    background:linear-gradient(180deg,#eef5dd,#e2ecc9);
+    border-radius:18px;
+    overflow:hidden;
+    margin:6px 0 4px;
+  }
+  .ground{
+    position:absolute;left:0;right:0;bottom:38px;
+    height:3px;background:var(--ink);opacity:.5;
+  }
+  .ground-lbl{
+    position:absolute;right:12px;bottom:42px;
+    font-family:'Space Mono',monospace;font-size:10px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);
+  }
+  .foot{
+    position:absolute;left:30px;bottom:14px;font-size:34px;
+    transform-origin:center bottom;
+    animation:kick 1.8s ease-in-out infinite;
+  }
+  @keyframes kick{
+    0%,100%{transform:rotate(-8deg);}
+    44%{transform:rotate(-8deg);}
+    52%{transform:rotate(-26deg);}   /* il tocco */
+    60%{transform:rotate(-8deg);}
+  }
+  .anim-ball{
+    position:absolute;left:64px;
+    width:26px;height:26px;border-radius:50%;
+    background:var(--court);border:2px solid var(--ink);
+    animation:bounce 1.8s ease-in-out infinite;
+  }
+  /* la pallina: sale dal piede, ricade, rimbalza a terra, risale */
+  @keyframes bounce{
+    0%   {bottom:46px;left:64px;}           /* appena toccata, sale */
+    25%  {bottom:120px;left:90px;}          /* apice */
+    50%  {bottom:46px;left:116px;}          /* ricade verso terra */
+    58%  {bottom:30px;left:124px;}          /* RIMBALZO a terra (punto basso) */
+    66%  {bottom:60px;left:116px;}          /* risale dal rimbalzo */
+    100% {bottom:46px;left:64px;}           /* torna verso il piede per il tocco */
+  }
+  .beat-row{display:flex;gap:8px;margin-top:12px;}
+  .beat{
+    flex:1;text-align:center;
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+    padding:8px 4px;border-radius:10px;letter-spacing:.04em;
+    background:#eef2e6;color:var(--ink-soft);
+  }
+  .beat.kick{background:var(--ink);color:var(--court);}
+  .beat.bounce{background:var(--clay);color:#fff;}
+
+  .step-list{counter-reset:s;list-style:none;margin-top:6px;}
+  .step-list li{
+    position:relative;padding:10px 0 10px 40px;
+    border-top:1px solid #eef2e6;font-size:14px;line-height:1.45;
+  }
+  .step-list li:first-child{border-top:none;}
+  .step-list li::before{
+    counter-increment:s;content:counter(s);
+    position:absolute;left:0;top:9px;
+    width:26px;height:26px;border-radius:50%;
+    background:var(--court);border:2px solid var(--ink);
+    font-family:'Space Mono',monospace;font-size:13px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .sound-cue{
+    text-align:center;font-family:'Space Mono',monospace;
+    font-size:15px;color:var(--ink);margin-top:14px;letter-spacing:.02em;
+  }
+  .sound-cue .tic{color:var(--ink);font-weight:700;}
+  .sound-cue .plop{color:var(--clay);font-weight:700;}
+  .saved-note{
+    display:flex;align-items:center;gap:8px;
+    font-size:12px;color:var(--ink-soft);margin-top:14px;
+    font-family:'Space Mono',monospace;
+  }
+  .saved-note .dot{width:8px;height:8px;border-radius:50%;background:var(--court-deep);}
+
+  /* ---- badge livello ---- */
+  .foot-tag{
+    text-align:center;
+    font-family:'Space Mono',monospace;font-size:13px;font-weight:700;
+    color:var(--clay);margin-top:8px;letter-spacing:.02em;
+  }
+  .total-line{
+    text-align:center;font-family:'Space Mono',monospace;
+    font-size:12px;color:var(--ink-soft);margin-top:12px;letter-spacing:.03em;
+  }
+  .level-tag{
+    display:inline-block;
+    font-family:'Space Mono',monospace;font-size:12px;font-weight:700;
+    letter-spacing:.06em;text-transform:uppercase;
+    background:var(--ink);color:var(--court);
+    padding:8px 14px;border-radius:999px;margin-bottom:14px;
+  }
+
+  /* ---- calendario giorni ---- */
+  .cal-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .cal-head .mname{font-size:20px;font-weight:800;letter-spacing:-.01em;text-transform:capitalize;}
+  .cal-nav{
+    background:var(--panel);border:2px solid var(--ink);
+    width:38px;height:38px;border-radius:11px;
+    font-size:18px;font-weight:700;color:var(--ink);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .cal-nav:active{background:var(--ink);color:var(--court);}
+  .dow{
+    display:grid;grid-template-columns:repeat(7,1fr);gap:6px;
+    margin-bottom:6px;
+  }
+  .dow span{
+    text-align:center;font-family:'Space Mono',monospace;
+    font-size:10px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;
+  }
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cell{
+    aspect-ratio:1;border-radius:11px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Mono',monospace;font-size:14px;font-weight:700;
+    background:#eef2e6;color:var(--ink-soft);position:relative;
+  }
+  .cell.empty{background:transparent;}
+  .cell.done{
+    background:var(--court-deep);color:var(--ink);
+    box-shadow:inset 0 0 0 2px var(--ink);
+  }
+  .cell.today{box-shadow:inset 0 0 0 2px var(--clay);color:var(--clay);}
+  .cell.done.today{box-shadow:inset 0 0 0 2px var(--clay);color:var(--ink);}
+  .cell.done::after{content:"🎾";position:absolute;font-size:9px;bottom:3px;right:4px;}
+  .cal-legend{
+    display:flex;gap:16px;justify-content:center;margin-top:16px;
+    font-size:12px;color:var(--ink-soft);font-family:'Space Mono',monospace;
+  }
+  .cal-legend i{
+    width:14px;height:14px;border-radius:4px;display:inline-block;
+    vertical-align:-2px;margin-right:5px;
+  }
+  .cal-legend .l-done{background:var(--court-deep);box-shadow:inset 0 0 0 2px var(--ink);}
+  .cal-legend .l-today{background:transparent;box-shadow:inset 0 0 0 2px var(--clay);}
+  .cal-summary{
+    display:flex;gap:10px;margin-top:16px;
+  }
+  .cal-stat{
+    flex:1;background:#f0f5e4;border-radius:14px;padding:12px;text-align:center;
+  }
+  .cal-stat .num{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:var(--ink);line-height:1;}
+  .cal-stat .cap{font-size:11px;color:var(--ink-soft);margin-top:4px;}
+
+  /* done overlay */
+  .done-flash{
+    position:fixed;inset:0;background:rgba(22,32,26,.94);
+    display:none;align-items:center;justify-content:center;flex-direction:column;
+    z-index:50;text-align:center;padding:30px;
+  }
+  .done-flash.show{display:flex;animation:fade .4s;}
+  .done-flash h2{color:var(--court);font-size:40px;font-weight:800;line-height:1;}
+  .done-flash p{color:var(--line);margin-top:14px;font-size:16px;opacity:.9;}
+  .done-flash button{margin-top:26px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="seam"></div>
+
+  <header>
+    <div class="kicker">Pallina da tennis · 20 min/giorno</div>
+    <h1>Tocco<span class="ball"></span></h1>
+  </header>
+
+  <div class="streak">
+    <div class="big" id="streakNum">0</div>
+    <div class="lbl">giorni<br>di fila</div>
+    <div class="cheer" id="cheer"><span class="fire" id="fire">🎾</span><span id="cheerTxt"></span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-v="train">Allena</button>
+    <button class="tab" data-v="learn">Esercizio</button>
+    <button class="tab" data-v="count">Conta</button>
+    <button class="tab" data-v="cal">Giorni</button>
+    <button class="tab" data-v="plan">Piano</button>
+    <button class="tab" data-v="stats">Record</button>
+  </div>
+
+  <main>
+    <!-- ALLENA -->
+    <section class="view active" id="train">
+      <div class="card">
+        <span class="phase-pill" id="sessPhase">Sessione · 20 min</span>
+        <div class="timer-num" id="clock">5:00</div>
+        <div class="block-name" id="blockName">Riscaldamento</div>
+        <div class="foot-tag" id="footTag">🦶 Sinistro (forte)</div>
+        <div class="block-desc" id="blockDesc">Colpisci la palla sul primo rimbalzo e riprendila con le mani. Prendi le misure, scalda caviglie e piede.</div>
+        <div class="progress"><i id="bar"></i></div>
+        <div class="seg-row" id="segs"></div>
+        <div class="total-line" id="totalLine">Sessione · 20:00 rimanenti</div>
+        <div class="controls">
+          <button class="primary" id="startBtn">Inizia</button>
+          <button class="ghost" id="skipBtn">Salta ▸</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-label">Mentre palleggi</div>
+        <p class="tip">👁️ Occhi sulla pallina · 🪶 tocchi delicati, accarezza · 🦶 piede a cucchiaio (punta su) · ⚖️ il piede debole non si salta mai.</p>
+      </div>
+    </section>
+
+    <!-- ESERCIZIO -->
+    <section class="view" id="learn">
+      <div class="level-tag" id="levelTag">Giorno 0 · si parte!</div>
+      <div class="card">
+        <div class="section-label">Il ritmo tocco · rimbalzo</div>
+        <div class="rhythm-stage">
+          <div class="anim-ball"></div>
+          <div class="ground"></div>
+          <div class="ground-lbl">terra</div>
+          <div class="foot">🦶</div>
+        </div>
+        <div class="beat-row">
+          <div class="beat kick">TOCCO</div>
+          <div class="beat">sale</div>
+          <div class="beat bounce">RIMBALZO</div>
+          <div class="beat">risale</div>
+        </div>
+        <div class="sound-cue"><span class="plop">plop</span> · <span class="tic">tic</span> · <span class="plop">plop</span> · <span class="tic">tic</span></div>
+        <p class="tip" style="text-align:center;margin-top:8px;">plop = la pallina rimbalza a terra · tic = il tuo tocco</p>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Cosa fare, passo per passo</div>
+        <ol class="step-list">
+          <li>Lascia cadere la pallina: tocca terra e <b>rimbalza su</b>.</li>
+          <li>Quando risale (sotto il ginocchio) dai un <b>tocco</b> dolce verso l'alto col collo del piede.</li>
+          <li>Lei sale, ricade e <b>tocca terra di nuovo</b>.</li>
+          <li>Risale dal rimbalzo → tu dai un altro <b>tocco</b>.</li>
+          <li>Ripeti con ritmo costante. Non sempre in aria: la palla <b>tocca terra ogni volta</b>.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <div class="section-label">I 3 punti chiave</div>
+        <p class="tip"><b>🎯 Altezza:</b> colpiscila quando è tra caviglia e ginocchio, mai più in alto.<br>
+        <b>🦶 Contatto:</b> collo del piede (parte piatta sopra le dita), punta leggermente in su.<br>
+        <b>🪶 Forza:</b> tocco morbido e verso l'alto, circa mezzo metro. Deve risalire dritta davanti a te.</p>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Errori da evitare</div>
+        <p class="tip"><b>Punta del piede</b> → la palla schizza via. Usa il collo.<br>
+        <b>Colpire tardi</b>, quando è già ricaduta → prendila in salita o sul punto alto del suo arco.<br>
+        <b>Tocco troppo forte</b> → la rincorri. È controllo, non potenza.</p>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Perché col rimbalzo</div>
+        <p class="tip">Il rimbalzo a terra è il tuo alleato: ti regala mezzo secondo in più per riposizionare il piede prima del tocco successivo. Senza rimbalzo (palla sempre in aria) il tempo è dimezzato — troppo difficile da zero.</p>
+        <p class="tip" style="margin-top:10px;">Quando questo ritmo ti viene facile, passi alla <b>Fase 2</b>: due tocchi prima del rimbalzo, poi tre… finché togli il rimbalzo del tutto e arrivi al palleggio vero.</p>
+      </div>
+    </section>
+
+    <!-- CONTA -->
+    <section class="view" id="count">
+      <div class="card counter-wrap">
+        <div class="section-label">Con rimbalzo</div>
+        <div class="tap-zone" id="tapZoneA">
+          <div class="tap-count" id="tapCountA">0</div>
+          <div class="tap-hint">tocco-rimbalzo · tocca a ogni tocco · tieni premuto per azzerare</div>
+        </div>
+        <div class="pb-line">Record con rimbalzo: <b id="pbA">—</b></div>
+        <div class="controls">
+          <button class="primary" id="saveA">Salva</button>
+          <button class="ghost" id="resetA">0</button>
+        </div>
+      </div>
+
+      <div class="card counter-wrap">
+        <div class="section-label">Senza rimbalzo (palleggio vero)</div>
+        <div class="tap-zone" id="tapZoneB">
+          <div class="tap-count" id="tapCountB">0</div>
+          <div class="tap-hint">palla sempre in aria · tocca a ogni palleggio · tieni premuto per azzerare</div>
+        </div>
+        <div class="pb-line">Record senza rimbalzo: <b id="pbB">—</b></div>
+        <div class="controls">
+          <button class="primary" id="saveB">Salva</button>
+          <button class="ghost" id="resetB">0</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Come si usa</div>
+        <p class="tip">Due contatori distinti: in alto i tocchi <b>con rimbalzo</b> a terra, in basso il <b>palleggio vero</b> senza far cadere la palla. Tocca il riquadro a ogni tocco e salva quando la palla cade. I due record restano separati nella scheda <b>Record</b>.</p>
+      </div>
+    </section>
+
+    <!-- GIORNI / CALENDARIO -->
+    <section class="view" id="cal">
+      <div class="card">
+        <div class="cal-head">
+          <button class="cal-nav" id="calPrev">‹</button>
+          <div class="mname" id="calMonth">—</div>
+          <button class="cal-nav" id="calNext">›</button>
+        </div>
+        <div class="dow"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-legend">
+          <span><i class="l-done"></i>allenato</span>
+          <span><i class="l-today"></i>oggi</span>
+        </div>
+        <div class="cal-summary">
+          <div class="cal-stat"><div class="num" id="calMonthCount">0</div><div class="cap">questo mese</div></div>
+          <div class="cal-stat"><div class="num" id="calStreak">0</div><div class="cap">giorni di fila</div></div>
+          <div class="cal-stat"><div class="num" id="calTotal">0</div><div class="cap">totali</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PIANO -->
+    <section class="view" id="plan"></section>
+
+    <!-- RECORD -->
+    <section class="view" id="stats">
+      <div class="card">
+        <div class="section-label">Migliori — con rimbalzo</div>
+        <div id="recListA"><div class="empty">Nessun record ancora.</div></div>
+        <div class="section-label" style="margin-top:18px;">Migliori — senza rimbalzo</div>
+        <div id="recListB"><div class="empty">Nessun record ancora.</div></div>
+      </div>
+      <div class="card">
+        <div class="section-label">Costanza</div>
+        <div class="rec"><div class="d">Giorni di fila</div><div class="bar"><i id="barStreak"></i></div><div class="v" id="vStreak">0</div></div>
+        <div class="rec"><div class="d">Sessioni tot.</div><div class="bar"><i id="barTot"></i></div><div class="v" id="vTot">0</div></div>
+        <button class="reset" id="resetAll">azzera tutti i dati</button>
+        <div class="saved-note"><span class="dot"></span>I progressi si salvano da soli su questo dispositivo.</div>
+      </div>
+      <div class="card">
+        <div class="section-label">Backup progressi</div>
+        <p class="tip" style="margin-bottom:14px;">Salva un file con i tuoi dati per non perderli mai — utile se cambi telefono o reinstalli. Poi puoi ricaricarlo qui.</p>
+        <div class="controls">
+          <button class="primary" id="exportBtn">Esporta</button>
+          <button class="ghost" id="importBtn">Importa</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+        <div class="saved-note" id="backupMsg" style="display:none;"><span class="dot"></span><span></span></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="done-flash" id="doneFlash">
+  <h2>Fatto!<br>Catena +1 🎾</h2>
+  <p id="doneMsg">Sessione completata. Ci vediamo domani.</p>
+  <button class="primary" id="doneClose" style="max-width:200px;">Chiudi</button>
+</div>
+
+<script>
+/* ---------- stato persistente (salvato sul dispositivo) ---------- */
+const KEY='tocco_trainer_v3';
+const DEFAULT={ streak:0, lastDay:null, total:0, days:[], pbA:0, pbB:0, recordsA:[], recordsB:[] };
+let store;
+try{
+  // pulizia dati di prova della versione precedente
+  localStorage.removeItem('tocco_trainer_v1');
+  localStorage.removeItem('tocco_trainer_v2');
+  const raw=localStorage.getItem(KEY);
+  store = raw ? Object.assign({},DEFAULT,JSON.parse(raw)) : Object.assign({},DEFAULT);
+}catch(e){ store=Object.assign({},DEFAULT); }
+
+function persist(){
+  try{ localStorage.setItem(KEY, JSON.stringify(store)); }catch(e){}
+}
+
+/* ---------- sessioni 20 min, una per fase ---------- */
+/* piede: per un mancino il forte è il SINISTRO, il debole il DESTRO */
+const SESSIONS = [
+  // Fase 1 — primo rimbalzo
+  [
+    {n:"Riscaldamento", s:5*60, foot:"🦶 Sinistro (forte)", d:"Colpisci la palla sul primo rimbalzo e riprendila con le mani. Prendi le misure, scalda caviglie e piede."},
+    {n:"Primo rimbalzo continuo", s:7*60, foot:"🦶 Sinistro (forte)", d:"Tocco → terra → tocco → terra, senza fermarti. Colpisci sempre sul primo rimbalzo, palla tra caviglia e ginocchio."},
+    {n:"Piede debole", s:5*60, foot:"🦶 Destro (debole)", d:"Stesso esercizio, solo col destro. Cade subito? Normale. È dove guadagni di più."},
+    {n:"Sfida", s:3*60, foot:"🦶 Sinistro (forte)", d:"Conta quanti tocchi-rimbalzo fai di fila senza perdere la palla e prova a battere il record. Chiudi in positivo."}
+  ],
+  // Fase 2 — riduci il rimbalzo
+  [
+    {n:"Riscaldamento", s:4*60, foot:"🦶 Sinistro (forte)", d:"Qualche tocco-rimbalzo per scaldarti, poi prova subito due tocchi prima del rimbalzo."},
+    {n:"Doppio e triplo tocco", s:8*60, foot:"🦶 Sinistro (forte)", d:"Due tocchi prima che la palla tocchi terra, poi prova tre. Colpi morbidi verso l'alto, palla vicina a te."},
+    {n:"Piede debole", s:5*60, foot:"🦶 Destro (debole)", d:"Doppio tocco col destro. Anche solo 2 tocchi puliti qui valgono tanto."},
+    {n:"Sfida", s:3*60, foot:"🦶 Sinistro (forte)", d:"Quanti tocchi consecutivi riesci a fare prima del rimbalzo? Conta e batti il record."}
+  ],
+  // Fase 3 — palleggio vero
+  [
+    {n:"Riscaldamento", s:4*60, foot:"🦶 Sinistro (forte)", d:"Parti col rimbalzo, poi togli la terra: tieni la palla in aria con tocchi morbidi e bassi."},
+    {n:"Palleggio continuo", s:8*60, foot:"🦶 Sinistro (forte)", d:"La palla non tocca più terra. Tienila sotto il ginocchio, sguardo fisso, tocchi leggeri e regolari."},
+    {n:"Piede debole", s:5*60, foot:"🦶 Destro (debole)", d:"Palleggio in aria col destro. È difficile: poche ripetizioni ma fatte bene."},
+    {n:"Alterna i piedi", s:3*60, foot:"🦶 Sinistro + Destro", d:"Un tocco col sinistro, uno col destro. Costruisce coordinazione e ti rende completo."}
+  ],
+  // Fase 4 — consolida & varia
+  [
+    {n:"Riscaldamento", s:3*60, foot:"🦶 Sinistro + Destro", d:"Palleggio sciolto per entrare in ritmo, entrambi i piedi."},
+    {n:"Serie lunghe", s:8*60, foot:"🦶 Sinistro (forte)", d:"Punta a record sempre più alti, verso i 50 e i 100. Lavora sulla regolarità, non sulla forza."},
+    {n:"Piede debole", s:5*60, foot:"🦶 Destro (debole)", d:"Mai mollarlo: l'obiettivo è che il destro faccia quasi quanto il sinistro."},
+    {n:"Varianti", s:4*60, foot:"🦶 Sinistro + Destro", d:"Coscia-piede, altezze diverse, cambi di ritmo, e se te la senti petto-piede. Allarga il controllo."}
+  ]
+];
+// la sessione attiva (puntatore, aggiornato da applyProgress)
+let BLOCKS = SESSIONS[0];
+
+/* ---------- piano fasi (ogni esercizio: nome + spiegazione) ---------- */
+const PHASES = [
+  {t:"Fase 1 · Confidenza", days:"Giorni 1–10", items:[
+    {x:"Calcio dopo il rimbalzo", d:"Lascia cadere la pallina, falla rimbalzare a terra una volta e quando risale calciala dolce verso l'alto col collo del piede (la parte piatta sopra le dita, non la punta). Riprendila con le mani e ripeti. Obiettivo: prendere le misure, capire come reagisce."},
+    {x:"Ritmo tocco-rimbalzo", d:"Concatena i colpi: tocco → la palla rimbalza a terra → tocco → rimbalzo, ritmo lento e costante. La palla tocca terra ogni volta: quel mezzo secondo ti serve per riposizionare il piede. Tienila bassa, sotto il ginocchio."},
+    {x:"Piede debole (ultimi 5 min)", d:"Stesso esercizio ma solo col piede non dominante. All'inizio è frustrante e cade subito: è normale. È il blocco che ti dà il vantaggio più grande nel tempo, non saltarlo mai."}
+  ], goal:"Traguardo: tocco-rimbalzo-tocco controllato e ripetuto senza inseguire la palla."},
+  {t:"Fase 2 · Riduci il rimbalzo", days:"Giorni 11–25", items:[
+    {x:"Doppio tocco", d:"Ora prova due tocchi di seguito prima di lasciar rimbalzare la palla a terra. Quando ti riesce con regolarità, passa a tre tocchi prima del rimbalzo. Stai pian piano togliendo l'aiuto del rimbalzo."},
+    {x:"Tieni su un attimo in più", d:"A ogni serie cerca di mantenere la palla in aria una frazione di secondo in più. Colpi morbidi e verso l'alto (non in avanti), così la palla resta vicina a te e raggiungibile."},
+    {x:"Piede debole", d:"Ripeti doppio tocco e mezzo rimbalzo col piede debole. Anche solo 2-3 tocchi puliti qui valgono più di 10 col piede forte."}
+  ], goal:"Traguardo: <b>5+</b> tocchi consecutivi senza far cadere la palla."},
+  {t:"Fase 3 · Palleggio vero", days:"Giorni 26–50", items:[
+    {x:"Palleggio continuo", d:"La palla non tocca più terra: la tieni sempre in aria con tocchi morbidi. Mantienila bassa (sotto il ginocchio): più è bassa, più hai controllo e tempo di reazione. Sguardo fisso sulla palla."},
+    {x:"Conta e batti il record", d:"Usa la scheda Conta: tocca lo schermo a ogni palleggio e registra quanti ne fai di fila. Avere un numero da superare ti spinge a migliorare sessione dopo sessione."},
+    {x:"Alterna i due piedi", d:"Nel finale prova a palleggiare alternando piede destro e sinistro a ogni tocco. È difficile ma costruisce coordinazione e ti rende imprevedibile col pallone vero."}
+  ], goal:"Traguardo: <b>15–20</b> tocchi consecutivi."},
+  {t:"Fase 4 · Consolida & varia", days:"Giorni 51+", items:[
+    {x:"Record sempre più lunghi", d:"Punta a serie sempre più lunghe, verso i 50 e poi i 100 tocchi. A questo livello il movimento è quasi automatico: lavora sulla regolarità, non sulla forza."},
+    {x:"Piede debole, mai mollarlo", d:"Continua a dedicargli un blocco fisso. L'obiettivo è che il piede debole sappia fare quasi quanto il forte: è ciò che distingue un giocatore completo."},
+    {x:"Varianti", d:"Aggiungi combinazioni: coscia-piede (un tocco di coscia, uno di piede), altezze diverse, cambi di ritmo, e se te la senti petto-piede. Tengono l'allenamento vivo e allargano il controllo."}
+  ], goal:"Obiettivo: <b>100</b> di fila e tocco completo con entrambi i piedi."}
+];
+
+/* ---------- util ---------- */
+const $ = s => document.querySelector(s);
+const todayKey = () => new Date().toISOString().slice(0,10);
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    $('#'+t.dataset.v).classList.add('active');
+  };
+});
+
+/* ---------- timer ---------- */
+let idx=0, remain=BLOCKS[0].s, running=false, tick=null, endAt=null;
+
+function renderSegs(){
+  const r=$('#segs'); r.innerHTML='';
+  BLOCKS.forEach((b,i)=>{
+    const e=document.createElement('div');
+    e.className='seg'+(i<idx?' done':i===idx?' now':'');
+    r.appendChild(e);
+  });
+}
+function fmt(s){s=Math.max(0,s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function paintBlock(){
+  const b=BLOCKS[idx];
+  $('#blockName').textContent=b.n;
+  $('#blockDesc').textContent=b.d;
+  const ft=$('#footTag'); if(ft) ft.textContent=b.foot||'';
+  $('#clock').textContent=fmt(remain);
+  $('#bar').style.width=(100*(b.s-remain)/b.s)+'%';
+  // tempo totale rimanente = blocco corrente + blocchi successivi
+  const tl=$('#totalLine');
+  if(tl){
+    let totLeft=Math.max(0,remain);
+    for(let i=idx+1;i<BLOCKS.length;i++) totLeft+=BLOCKS[i].s;
+    const tot=BLOCKS.reduce((a,x)=>a+x.s,0);
+    tl.textContent='Sessione · '+fmt(totLeft)+' su '+fmt(tot)+' rimanenti';
+  }
+  renderSegs();
+}
+function nextBlock(){
+  if(idx<BLOCKS.length-1){
+    idx++; remain=BLOCKS[idx].s;
+    if(running){ endAt=Date.now()+remain*1000; saveTimer(); }
+    paintBlock();
+  } else { clearTimer(); finishSession(); }
+}
+// salva lo stato del timer così sopravvive a blocco schermo / chiusura
+function saveTimer(){
+  try{ localStorage.setItem('tocco_timer', JSON.stringify({idx,endAt,running})); }catch(e){}
+}
+function clearTimer(){ try{ localStorage.removeItem('tocco_timer'); }catch(e){} }
+
+function loop(){
+  if(!running||endAt===null) return;
+  remain=Math.round((endAt-Date.now())/1000);
+  if(remain<=0){ remain=0; paintBlock(); nextBlock(); return; }
+  paintBlock();
+}
+$('#startBtn').onclick=()=>{
+  running=!running;
+  $('#startBtn').textContent=running?'Pausa':'Riprendi';
+  if(running){
+    endAt=Date.now()+remain*1000;
+    saveTimer();
+    clearInterval(tick); tick=setInterval(loop,500);
+  } else {
+    clearInterval(tick);
+    saveTimer();
+  }
+};
+$('#skipBtn').onclick=()=>{
+  clearInterval(tick);
+  const wasRunning=running; running=false;
+  $('#startBtn').textContent='Riprendi';
+  if(idx<BLOCKS.length-1){
+    idx++; remain=BLOCKS[idx].s; endAt=null; saveTimer(); paintBlock();
+  } else { clearTimer(); finishSession(); }
+};
+
+// ripristina il timer al riapri / sblocco schermo
+function restoreTimer(){
+  let t=null;
+  try{ t=JSON.parse(localStorage.getItem('tocco_timer')); }catch(e){}
+  if(!t) return;
+  idx=Math.min(t.idx||0, BLOCKS.length-1);
+  if(t.running && t.endAt){
+    // recupera il tempo trascorso anche se è passato per più blocchi
+    let left=Math.round((t.endAt-Date.now())/1000);
+    while(left<=0 && idx<BLOCKS.length-1){ idx++; left+=BLOCKS[idx].s; }
+    if(left<=0 && idx>=BLOCKS.length-1){
+      // sessione finita mentre era bloccato
+      remain=0; running=false; clearTimer(); paintBlock(); finishSession(); return;
+    }
+    remain=left; running=true; endAt=Date.now()+remain*1000;
+    $('#startBtn').textContent='Pausa';
+    clearInterval(tick); tick=setInterval(loop,500);
+  } else {
+    remain=(t.endAt? Math.max(0,Math.round((t.endAt-Date.now())/1000)) : BLOCKS[idx].s);
+    if(!t.endAt) remain=BLOCKS[idx].s;
+    running=false; $('#startBtn').textContent='Riprendi';
+  }
+  paintBlock();
+}
+// quando torni sull'app dopo averla lasciata, ricalcola subito
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && running) loop(); });
+window.addEventListener('focus',()=>{ if(running) loop(); });
+
+function finishSession(){
+  clearInterval(tick); running=false; endAt=null; clearTimer();
+  $('#startBtn').textContent='Inizia';
+  idx=0; remain=BLOCKS[0].s; paintBlock();
+  // streak
+  const tk=todayKey();
+  if(store.lastDay!==tk){
+    const y=new Date(Date.now()-86400000).toISOString().slice(0,10);
+    store.streak = (store.lastDay===y)? store.streak+1 : 1;
+    store.lastDay=tk; store.total++;
+    if(!store.days.includes(tk)) store.days.push(tk);
+    persist();
+    refreshStreak(); refreshStats(); renderCal(); applyProgress();
+  }
+  $('#fire').textContent='🔥';
+  $('#doneFlash').classList.add('show');
+}
+$('#doneClose').onclick=()=>$('#doneFlash').classList.remove('show');
+
+/* ---------- streak ui ---------- */
+function cheerFor(s){
+  if(s<=0)  return 'Inizia oggi: bastano 20 minuti.';
+  if(s===1) return 'Primo giorno fatto! Si parte.';
+  if(s<4)   return s+' giorni: stai prendendo il ritmo.';
+  if(s<7)   return 'Bella costanza, continua così!';
+  if(s<14)  return 'Una settimana piena! Il tocco cresce.';
+  if(s<30)  return 'Sei una macchina, non mollare.';
+  if(s<50)  return 'Un mese di fila! Rispetto. 💪';
+  if(s<100) return 'Livello pro della costanza.';
+  return '100+ giorni. Leggendario. 🏆';
+}
+function refreshStreak(){
+  $('#streakNum').textContent=store.streak;
+  $('#fire').textContent= store.streak>0 ? '🔥' : '🎾';
+  const ct=$('#cheerTxt'); if(ct) ct.textContent=cheerFor(store.streak);
+}
+
+/* ---------- conta tocchi: due contatori (A=con rimbalzo, B=senza) ---------- */
+const counters={A:0,B:0};
+function setupCounter(tag){
+  const zone=$('#tapZone'+tag), disp=$('#tapCount'+tag);
+  let holdT=null;
+  const bump=()=>{ counters[tag]++; disp.textContent=counters[tag]; };
+  zone.addEventListener('click',bump);
+  zone.addEventListener('touchstart',()=>{ holdT=setTimeout(()=>{counters[tag]=0;disp.textContent=0;},650); },{passive:true});
+  zone.addEventListener('touchend',()=>clearTimeout(holdT));
+  $('#reset'+tag).onclick=()=>{counters[tag]=0;disp.textContent=0;};
+  $('#save'+tag).onclick=()=>{
+    if(counters[tag]<=0)return;
+    const list = tag==='A' ? (store.recordsA||(store.recordsA=[])) : (store.recordsB||(store.recordsB=[]));
+    list.push({v:counters[tag],d:todayKey()});
+    list.sort((a,b)=>b.v-a.v);
+    if(tag==='A') store.recordsA=list.slice(0,8); else store.recordsB=list.slice(0,8);
+    if(tag==='A') store.pbA=Math.max(store.pbA||0,counters[tag]);
+    else store.pbB=Math.max(store.pbB||0,counters[tag]);
+    counters[tag]=0; disp.textContent=0;
+    persist(); refreshStats();
+    const btn=$('#save'+tag); btn.textContent='Salvato ✓';
+    setTimeout(()=>btn.textContent='Salva',1200);
+  };
+}
+setupCounter('A'); setupCounter('B');
+
+/* ---------- piano render ---------- */
+// soglia minima di giorni allenati per "essere" in quella fase
+const PHASE_START=[0,10,25,50]; // fase 1 da 0, fase 2 da 10, ecc.
+(function(){
+  const w=$('#plan');
+  PHASES.forEach((p,i)=>{
+    const c=document.createElement('div');
+    c.className='card phase-card';
+    c.id='phase'+i;
+    c.innerHTML=`<div class="phase-flag" id="flag${i}"></div>
+      <h3>${p.t}</h3><div class="days">${p.days}</div>
+      <ul>${p.items.map(it=>`<li><b class="ex-name">${it.x}</b><span class="ex-desc">${it.d}</span></li>`).join('')}</ul>
+      <div class="goal">${p.goal}</div>`;
+    w.appendChild(c);
+  });
+})();
+
+/* ---------- avanzamento automatico di fase ---------- */
+function currentPhase(){
+  const n=store.days?store.days.length:0; // giorni di allenamento totali
+  let ph=0;
+  for(let i=0;i<PHASE_START.length;i++){ if(n>=PHASE_START[i]) ph=i; }
+  return ph;
+}
+function applyProgress(){
+  const n=store.days?store.days.length:0;
+  const ph=currentPhase();
+  // collega la sessione del timer alla fase corrente (solo se non c'è una sessione in corso)
+  if(!running){
+    BLOCKS = SESSIONS[ph];
+    idx=Math.min(idx, BLOCKS.length-1);
+    remain=BLOCKS[idx].s;
+    if(typeof paintBlock==='function') paintBlock();
+  }
+  // indicatore in cima alla scheda Esercizio
+  const lvl=$('#levelTag');
+  if(lvl){
+    lvl.textContent = n===0 ? 'Giorno 0 · si parte!' : ('Giorno '+n+' · Fase '+(ph+1));
+  }
+  // etichetta fase anche sulla sessione Allena
+  const sp=$('#sessPhase');
+  if(sp) sp.textContent='Fase '+(ph+1)+' · 20 min';
+  // evidenzia la fase attuale, opacizza le altre
+  PHASES.forEach((p,i)=>{
+    const card=$('#phase'+i); const flag=$('#flag'+i);
+    if(!card)return;
+    card.classList.toggle('phase-on', i===ph);
+    card.classList.toggle('phase-off', i>ph);
+    card.classList.toggle('phase-done', i<ph);
+    if(flag){
+      flag.textContent = i<ph ? 'completata' : i===ph ? 'sei qui' : '';
+      flag.style.display = flag.textContent ? 'inline-block' : 'none';
+    }
+  });
+}
+
+/* ---------- stats render ---------- */
+function recListHTML(list){
+  if(!list||!list.length) return '<div class="empty">Nessun record ancora.</div>';
+  const max=list[0].v;
+  return list.map(r=>`
+      <div class="rec">
+        <div class="d">${r.d.slice(5)}</div>
+        <div class="bar"><i style="width:${100*r.v/max}%"></i></div>
+        <div class="v">${r.v}</div>
+      </div>`).join('');
+}
+function refreshStats(){
+  // record nella scheda Conta
+  $('#pbA').textContent = (store.pbA>0)? store.pbA+' tocchi' : '—';
+  $('#pbB').textContent = (store.pbB>0)? store.pbB+' tocchi' : '—';
+  // liste nella scheda Record
+  const ra=$('#recListA'), rb=$('#recListB');
+  if(ra) ra.innerHTML=recListHTML(store.recordsA);
+  if(rb) rb.innerHTML=recListHTML(store.recordsB);
+  $('#vStreak').textContent=store.streak;
+  $('#vTot').textContent=store.total;
+  $('#barStreak').style.width=Math.min(100,store.streak/100*100)+'%';
+  $('#barTot').style.width=Math.min(100,store.total/100*100)+'%';
+}
+
+$('#resetAll').onclick=()=>{
+  if(!confirm('Azzerare catena, record e progressi? Non si può annullare.'))return;
+  store.streak=0;store.lastDay=null;store.total=0;store.days=[];
+  store.pbA=0;store.pbB=0;store.recordsA=[];store.recordsB=[];
+  persist();
+  refreshStreak();refreshStats();renderCal();applyProgress();
+};
+
+/* ---------- calendario ---------- */
+let calView = new Date(); calView.setDate(1);
+const MONTHS=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+
+function dkey(d){ return d.toISOString().slice(0,10); }
+
+function renderCal(){
+  const y=calView.getFullYear(), m=calView.getMonth();
+  $('#calMonth').textContent = MONTHS[m]+' '+y;
+  const grid=$('#calGrid'); grid.innerHTML='';
+  // primo giorno: lun=0 ... dom=6
+  let first=new Date(y,m,1).getDay(); first=(first+6)%7;
+  const dim=new Date(y,m+1,0).getDate();
+  const todayK=todayKey();
+  for(let i=0;i<first;i++){
+    const e=document.createElement('div'); e.className='cell empty'; grid.appendChild(e);
+  }
+  let monthCount=0;
+  for(let d=1;d<=dim;d++){
+    const dt=new Date(y,m,d);
+    const k=dkey(dt);
+    const e=document.createElement('div');
+    e.className='cell';
+    if(store.days && store.days.includes(k)){ e.classList.add('done'); monthCount++; }
+    if(k===todayK) e.classList.add('today');
+    e.textContent=d;
+    grid.appendChild(e);
+  }
+  $('#calMonthCount').textContent=monthCount;
+  $('#calStreak').textContent=store.streak;
+  $('#calTotal').textContent=(store.days?store.days.length:0);
+}
+$('#calPrev').onclick=()=>{ calView.setMonth(calView.getMonth()-1); renderCal(); };
+$('#calNext').onclick=()=>{ calView.setMonth(calView.getMonth()+1); renderCal(); };
+
+/* ---------- backup esporta / importa ---------- */
+function showBackupMsg(txt){
+  const b=$('#backupMsg'); b.style.display='flex';
+  b.querySelector('span:last-child').textContent=txt;
+  setTimeout(()=>{b.style.display='none';},3500);
+}
+$('#exportBtn').onclick=()=>{
+  const data=JSON.stringify(store,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const stamp=todayKey();
+  a.href=url; a.download='tocco-backup-'+stamp+'.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showBackupMsg('Backup esportato: tocco-backup-'+stamp+'.json');
+};
+$('#importBtn').onclick=()=>$('#importFile').click();
+$('#importFile').onchange=(ev)=>{
+  const f=ev.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      // merge prudente: tiene i valori migliori
+      store.streak=Math.max(store.streak||0, d.streak||0);
+      store.total=Math.max(store.total||0, d.total||0);
+      store.pbA=Math.max(store.pbA||0, d.pbA||0);
+      store.pbB=Math.max(store.pbB||0, d.pbB||0);
+      store.lastDay=d.lastDay||store.lastDay;
+      // unione giorni senza duplicati
+      const ds=new Set([...(store.days||[]),...(d.days||[])]);
+      store.days=[...ds].sort();
+      // unione record A e B
+      const mergeRec=(cur,inc)=>{
+        const all=[...(cur||[]),...(inc||[])];
+        all.sort((a,b)=>b.v-a.v);
+        return all.slice(0,8);
+      };
+      store.recordsA=mergeRec(store.recordsA,d.recordsA);
+      store.recordsB=mergeRec(store.recordsB,d.recordsB);
+      persist();
+      refreshStreak();refreshStats();renderCal();applyProgress();
+      showBackupMsg('Progressi importati e uniti ai tuoi.');
+    }catch(e){
+      showBackupMsg('File non valido. Usa un backup esportato da qui.');
+    }
+    ev.target.value='';
+  };
+  r.readAsText(f);
+};
+
+/* ---------- init ---------- */
+paintBlock();refreshStreak();refreshStats();renderCal();applyProgress();restoreTimer();
+</script>
+</body>
+</html>
